@@ -70,6 +70,11 @@ constexpr int POT_FENV_DECAY  = A13;  // pin 27 — filter env decay time
 // Ignore ADC changes smaller than this to suppress noise jitter (0–1023 scale)
 constexpr int POT_DEADBAND = 4;
 
+// ── Waveform selector switch ───────────────────────────────────────────────────
+// SP8T rotary switch: common → GND, each position pin → digital input (INPUT_PULLUP).
+// Positions 0–4 select a waveform; positions 5–7 are unassigned (do nothing).
+constexpr int WAVE_SW_PINS[8] = {0, 1, 2, 3, 4, 5, 6, 9};
+
 // ── Filter env pot output ranges ──────────────────────────────────────────────
 constexpr float POT_FENV_ATTACK_MIN_MS =    1.0f;
 constexpr float POT_FENV_ATTACK_MAX_MS = 2000.0f;

@@ -116,6 +116,7 @@ float gFilterResonance = FILTER_RESONANCE;
 float gModWheel        = 0.0f;   // 0.0 – 1.0  (vibrato depth)
 float gDetuneCents     = OSC2_DETUNE_CENTS;  // controlled by pitch wheel
 float gLfoPhase        = 0.0f;   // vibrato LFO phase (radians)
+int   gWaveform        = OSC1_WAVEFORM;      // current oscillator waveform
 
 // Live ADSR values — updated by pots, applied to all voices
 float gAttackMs  = AMP_ATTACK_MS;
@@ -139,6 +140,7 @@ void applyFilterToAllVoices();
 void applyADSRToAllVoices();
 void applyFilterEnvToAllVoices();
 void readPotentiometers();
+void readWaveformSwitch();
 
 // =============================================================================
 // SETUP
@@ -206,6 +208,9 @@ void setup() {
     masterMixer.gain(2, 0.0f);
     masterMixer.gain(3, 0.0f);
 
+    // ── Waveform selector switch ──────────────────────────────────────────────
+    for (int i = 0; i < 8; i++) pinMode(WAVE_SW_PINS[i], INPUT_PULLUP);
+
     // ── USB Host MIDI ─────────────────────────────────────────────────────────
     myusb.begin();
     midi1.setHandleNoteOn(onNoteOn);
@@ -229,6 +234,7 @@ void loop() {
     if (millis() - lastPoll >= 20) {
         lastPoll = millis();
         readPotentiometers();
+        readWaveformSwitch();
     }
 
     // ── Vibrato LFO — updated every 5 ms ─────────────────────────────────────
@@ -459,4 +465,46 @@ void readPotentiometers() {
                             (raw / 1023.0f) * (POT_FENV_DECAY_MAX_MS - POT_FENV_DECAY_MIN_MS);
         for (int i = 0; i < NUM_VOICES; i++) filterEnv[i].decay(gFilterEnvDecayMs);
     }
+}
+
+// =============================================================================
+// WAVEFORM SELECTOR SWITCH
+// Reads SP8T rotary switch (common → GND, positions → INPUT_PULLUP pins).
+// Positions 0–4 select a waveform; positions 5–7 are unassigned (do nothing).
+// =============================================================================
+void readWaveformSwitch() {
+    static const int waveforms[5] = {
+        WAVEFORM_SINE,
+        WAVEFORM_SAWTOOTH,
+        WAVEFORM_SQUARE,
+        WAVEFORM_TRIANGLE,
+        WAVEFORM_BANDLIMIT_SAWTOOTH
+    };
+    static int lastPos = -1;
+
+    // Find which position pin is pulled LOW
+    int pos = -1;
+    for (int i = 0; i < 8; i++) {
+        if (digitalRead(WAVE_SW_PINS[i]) == LOW) {
+            pos = i;
+            break;
+        }
+    }
+
+    // Positions 5–7 are unassigned — do nothing
+    if (pos > 4) return;
+
+    // No change since last read — do nothing
+    if (pos == lastPos) return;
+    lastPos = pos;
+
+    // pos == -1 means switch is between positions — do nothing
+    if (pos < 0) return;
+
+    gWaveform = waveforms[pos];
+    for (int i = 0; i < NUM_VOICES; i++) {
+        osc1[i].begin(gWaveform);
+        osc2[i].begin(gWaveform);
+    }
+    Serial.print("Waveform changed to position "); Serial.println(pos);
 }
